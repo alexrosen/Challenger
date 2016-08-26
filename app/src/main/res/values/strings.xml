@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">Challenger</string>
+    <string name="distance">Challenge Distance</string>
+    <string name="current">Current Distance</string>
+    <string name="days">Days From Pace</string>
+    <string name="permission_rationale">Access to your location is needed to use Google Fit data.</string>
+    <string name="ok">OK</string>
+
+</resources>
