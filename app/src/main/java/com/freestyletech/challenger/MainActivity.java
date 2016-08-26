@@ -91,6 +91,8 @@ public class MainActivity extends FragmentActivity
 
         mGoogleApiClient.connect();
 
+        readData();
+
         distanceText.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence charSequence, int i, int i1, int i2) {
@@ -110,14 +112,12 @@ public class MainActivity extends FragmentActivity
                     distance = Integer.parseInt(value);
                 }
                 updateDays();
+                readData();
             }
         });
     }
 
-    @Override
-    public void onConnected(Bundle connectionHint) {
-        // Connected to Google Fit Client.
-
+    private void readData() {
         // Setting a start and end date using a range of 1 week before this moment.
         Calendar cal = Calendar.getInstance();
         Date now = new Date();
@@ -125,6 +125,8 @@ public class MainActivity extends FragmentActivity
         long endTime = cal.getTimeInMillis();
         cal.add(Calendar.WEEK_OF_YEAR, -1);
         long startTime = cal.getTimeInMillis();
+
+        Log.i(TAG, "read data");
 
         DataReadRequest readRequest = new DataReadRequest.Builder()
                 .aggregate(DataType.TYPE_DISTANCE_DELTA, DataType.AGGREGATE_DISTANCE_DELTA)
@@ -138,20 +140,31 @@ public class MainActivity extends FragmentActivity
                     @Override
                     public void onResult(DataReadResult result) {
                         Log.i(TAG, "Received result");
-                        printData(result);
-                        for (Bucket bucket : result.getBuckets()) {
-                            List<DataSet> dataSets = bucket.getDataSets();
-                            for (DataSet dataSet : dataSets) {
-                                for (DataPoint dp : dataSet.getDataPoints()) {
-                                    for (Field field : dp.getDataType().getFields()) {
-                                        daysText.setText(dp.getValue(field).toString());
+                        if (result.getStatus().isSuccess()) {
+                            printData(result);
+                            for (Bucket bucket : result.getBuckets()) {
+                                List<DataSet> dataSets = bucket.getDataSets();
+                                for (DataSet dataSet : dataSets) {
+                                    for (DataPoint dp : dataSet.getDataPoints()) {
+                                        for (Field field : dp.getDataType().getFields()) {
+                                            daysText.setText(dp.getValue(field).toString());
+                                        }
                                     }
                                 }
                             }
-                        }
+                        } else handleReadFailure(result);
                     }
                 });
 }
+
+    private void handleReadFailure(DataReadResult result) {
+        if (result.getStatus().hasResolution()) {
+            try {
+                result.getStatus().startResolutionForResult(this, REQUEST_CODE_RESOLUTION);
+            } catch (IntentSender.SendIntentException e) {
+            }
+        }
+    }
 
 //    TODO - This handles initial sign-in problem but needs to be more robust for other types of problems
     @Override
