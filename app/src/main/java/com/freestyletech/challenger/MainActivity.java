@@ -47,8 +47,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-public class MainActivity extends FragmentActivity
-    implements GoogleApiClient.OnConnectionFailedListener {
+public class MainActivity extends FragmentActivity {
 
     public static final String TAG = "Challenger";
 
@@ -82,11 +81,21 @@ public class MainActivity extends FragmentActivity
 
         // Create a Google Fit Client instance with default user account.
         mGoogleApiClient = new GoogleApiClient.Builder(this)
-                .enableAutoManage(this /* FragmentActivity */,
-                        this /* OnConnectionFailedListener */)
+                .enableAutoManage(this, 0, new GoogleApiClient.OnConnectionFailedListener() {
+                    @Override
+                    public void onConnectionFailed(ConnectionResult result) {
+                        Log.i(TAG, "Google Play services connection failed. Cause: " +
+                                result.toString());
+                        Snackbar.make(
+                                MainActivity.this.findViewById(R.id.main_activity_view),
+                                "Exception while connecting to Google Play services: " +
+                                        result.getErrorMessage(),
+                                Snackbar.LENGTH_INDEFINITE).show();
+                    }
+                })
+                //.useDefaultAccount()
                 .addApi(Fitness.HISTORY_API)
                 .addScope(new Scope(Scopes.FITNESS_ACTIVITY_READ))
-                .addOnConnectionFailedListener(this)
                 .build();
 
         mGoogleApiClient.connect();
@@ -127,10 +136,12 @@ public class MainActivity extends FragmentActivity
         long startTime = cal.getTimeInMillis();
 
         Log.i(TAG, "read data");
+        Log.i(TAG, "Google API connection status: " + mGoogleApiClient.isConnected());
 
         DataReadRequest readRequest = new DataReadRequest.Builder()
-                .aggregate(DataType.TYPE_DISTANCE_DELTA, DataType.AGGREGATE_DISTANCE_DELTA)
-                .bucketByTime(365, TimeUnit.DAYS)
+                //.aggregate(DataType.TYPE_DISTANCE_DELTA, DataType.AGGREGATE_DISTANCE_DELTA)
+                .read(DataType.TYPE_DISTANCE_DELTA)
+                //.bucketByTime(1,  TimeUnit.DAYS)
                 .setTimeRange(startTime, endTime, TimeUnit.MILLISECONDS)
                 .build();
 
@@ -147,7 +158,7 @@ public class MainActivity extends FragmentActivity
                                 for (DataSet dataSet : dataSets) {
                                     for (DataPoint dp : dataSet.getDataPoints()) {
                                         for (Field field : dp.getDataType().getFields()) {
-                                            daysText.setText(dp.getValue(field).toString());
+                                            //daysText.setText(dp.getValue(field).toString());
                                         }
                                     }
                                 }
@@ -165,26 +176,6 @@ public class MainActivity extends FragmentActivity
             }
         }
     }
-
-//    TODO - This handles initial sign-in problem but needs to be more robust for other types of problems
-    @Override
-    public void onConnectionFailed(ConnectionResult result) {
-        // Error while connecting. Try to resolve using the pending intent returned.
-
-        if (result.getErrorCode() == FitnessStatusCodes.NEEDS_OAUTH_PERMISSIONS) {
-            try {
-                result.startResolutionForResult(this, REQUEST_OAUTH);
-            } catch (IntentSender.SendIntentException e) {
-            }
-        }
-        else if (result.hasResolution()) {
-            try {
-                result.startResolutionForResult(this, REQUEST_CODE_RESOLUTION);
-            } catch (IntentSender.SendIntentException e) {
-            }
-        }
-    }
-
 
     private void updateDays () {
         int days = (distance - current)/100;
@@ -272,6 +263,8 @@ public class MainActivity extends FragmentActivity
     // [START parse_dataset]
     private static void dumpDataSet(DataSet dataSet) {
         Log.i(TAG, "Data returned for Data type: " + dataSet.getDataType().getName());
+        Log.i(TAG, "Number of returned DataPoints is: " + dataSet.getDataPoints().size());
+
         DateFormat dateFormat = DateFormat.getTimeInstance();
 
         for (DataPoint dp : dataSet.getDataPoints()) {
