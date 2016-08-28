@@ -36,6 +36,7 @@ import com.google.android.gms.fitness.data.Field;
 import com.google.android.gms.fitness.data.Session;
 import com.google.android.gms.fitness.request.DataDeleteRequest;
 import com.google.android.gms.fitness.request.DataReadRequest;
+import com.google.android.gms.fitness.request.DataSourcesRequest;
 import com.google.android.gms.fitness.request.SessionInsertRequest;
 import com.google.android.gms.fitness.request.SessionReadRequest;
 import com.google.android.gms.fitness.result.DataReadResult;
@@ -93,14 +94,11 @@ public class MainActivity extends FragmentActivity {
                                 Snackbar.LENGTH_INDEFINITE).show();
                     }
                 })
-                //.useDefaultAccount()
+                .useDefaultAccount()
                 .addApi(Fitness.HISTORY_API)
+                .addApi(Fitness.RECORDING_API)
                 .addScope(new Scope(Scopes.FITNESS_ACTIVITY_READ))
                 .build();
-
-        mGoogleApiClient.connect();
-
-        readData();
 
         distanceText.addTextChangedListener(new TextWatcher() {
             @Override
@@ -137,13 +135,31 @@ public class MainActivity extends FragmentActivity {
 
         Log.i(TAG, "read data");
         Log.i(TAG, "Google API connection status: " + mGoogleApiClient.isConnected());
+        Log.i(TAG, "Permission: " + checkPermissions());
 
+        final DataSource ds = new DataSource.Builder()
+                .setAppPackageName("com.google.android.gms")
+                .setDataType(DataType.TYPE_STEP_COUNT_DELTA)
+                .setType(DataSource.TYPE_DERIVED)
+                .setStreamName("estimated_steps")
+                .build();
+
+        subscribeToRecordingApi(ds);
+
+        final DataReadRequest readRequest = new DataReadRequest.Builder()
+                .aggregate(ds, DataType.AGGREGATE_STEP_COUNT_DELTA)
+                .bucketByTime(1, TimeUnit.DAYS)
+                .setTimeRange(startTime, endTime, TimeUnit.MILLISECONDS)
+                .build();
+
+/*
         DataReadRequest readRequest = new DataReadRequest.Builder()
                 //.aggregate(DataType.TYPE_DISTANCE_DELTA, DataType.AGGREGATE_DISTANCE_DELTA)
                 .read(DataType.TYPE_DISTANCE_DELTA)
                 //.bucketByTime(1,  TimeUnit.DAYS)
                 .setTimeRange(startTime, endTime, TimeUnit.MILLISECONDS)
                 .build();
+*/
 
         Fitness.HistoryApi
                 .readData(mGoogleApiClient, readRequest)
@@ -167,6 +183,25 @@ public class MainActivity extends FragmentActivity {
                     }
                 });
 }
+
+    private void subscribeToRecordingApi(DataSource ds) {
+        Fitness.RecordingApi.subscribe(mGoogleApiClient, ds)
+                .setResultCallback(new ResultCallback<Status>() {
+                    @Override
+                    public void onResult(Status status) {
+                        if (status.isSuccess()) {
+                            if (status.getStatusCode()
+                                    == FitnessStatusCodes.SUCCESS_ALREADY_SUBSCRIBED) {
+                                Log.i(TAG, "Existing subscription for activity detected.");
+                            } else {
+                                Log.i(TAG, "Successfully subscribed!");
+                            }
+                        } else {
+                            Log.i(TAG, "There was a problem subscribing.");
+                        }
+                    }
+                });
+    }
 
     private void handleReadFailure(DataReadResult result) {
         if (result.getStatus().hasResolution()) {
@@ -242,9 +277,9 @@ public class MainActivity extends FragmentActivity {
                 + dataReadResult.getBuckets().size());
 
         if (dataReadResult.getBuckets().size() > 0) {
-            Log.i(TAG, "Number of returned buckets of DataSets is: "
-                    + dataReadResult.getBuckets().size());
             for (Bucket bucket : dataReadResult.getBuckets()) {
+                Log.i(TAG, "Number of DataSets in this bucket: "
+                        + bucket.getDataSets().size());
                 List<DataSet> dataSets = bucket.getDataSets();
                 for (DataSet dataSet : dataSets) {
                     dumpDataSet(dataSet);
@@ -262,8 +297,10 @@ public class MainActivity extends FragmentActivity {
 
     // [START parse_dataset]
     private static void dumpDataSet(DataSet dataSet) {
-        Log.i(TAG, "Data returned for Data type: " + dataSet.getDataType().getName());
-        Log.i(TAG, "Number of returned DataPoints is: " + dataSet.getDataPoints().size());
+        Log.i(TAG, "DataSet Type: " + dataSet.getDataType().getName());
+        Log.i(TAG, "DataSet source name: " + dataSet.getDataSource().getName());
+        Log.i(TAG, "DataSet stream name: " + dataSet.getDataSource().getStreamName());
+        Log.i(TAG, "Number of DataPoints in DataSet: " + dataSet.getDataPoints().size());
 
         DateFormat dateFormat = DateFormat.getTimeInstance();
 
