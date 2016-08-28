@@ -144,6 +144,7 @@ public class MainActivity extends FragmentActivity {
                 .setStreamName("estimated_steps")
                 .build();
 
+        //TODO: Adjust subscription to eliminate requirement that Google Fit app be installed to access existing data
         subscribeToRecordingApi(ds);
 
         final DataReadRequest readRequest = new DataReadRequest.Builder()
