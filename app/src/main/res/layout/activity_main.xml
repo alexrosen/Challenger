@@ -10,25 +10,46 @@
     tools:context="com.freestyletech.challenger.MainActivity"
     android:id="@+id/main_activity_view">
 
+    TextView
+        android:textAppearance="?android:attr/textAppearanceMedium"
+        android:id="@+id/distance_label"
+        android:text="@string/distance"
+        android:labelFor="@+id/distance"
+        android:layout_alignBottom="@+id/distance"
+        android:layout_alignParentStart="true" />
+
+    EditText
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceMedium"
+        android:text="0"
+        android:id="@+id/distance"
+        android:inputType="number"
+        android:layout_marginStart="51dp"
+        android:layout_gravity="center|left"
+        android:layout_marginTop="35dp"
+        android:layout_alignParentTop="true"
+        android:layout_toEndOf="@+id/current_label" />
+
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:textAppearance="?android:attr/textAppearanceMedium"
-        android:id="@+id/distance_label"
-        android:text="@string/distance"
-        android:layout_gravity="center|left" />
+        android:text="@string/monthlyMiles"
+        android:id="@+id/monthly_label"
+        android:layout_marginTop="74dp"
+        android:labelFor="@+id/monthly" />
 
     <EditText
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:textAppearance="?android:attr/textAppearanceMedium"
         android:text="0"
-        android:id="@+id/distance"
-        android:layout_marginStart="49dp"
-        android:layout_alignParentTop="true"
-        android:layout_toEndOf="@+id/distance_label"
-        android:layout_gravity="center|left"
-        android:inputType="numberDecimal"/>
+        android:inputType="number"
+        android:id="@+id/monthly"
+        android:layout_marginEnd="53dp"
+        android:layout_alignBottom="@+id/monthly_label"
+        android:layout_alignParentEnd="true" />
 
     <TextView
         android:layout_width="wrap_content"
@@ -36,19 +57,19 @@
         android:textAppearance="?android:attr/textAppearanceMedium"
         android:text="@string/current"
         android:id="@+id/current_label"
-        android:layout_marginTop="63dp"
-        android:layout_below="@+id/distance_label"
-        android:layout_toStartOf="@+id/distance" />
+        android:labelFor="@+id/current"
+        android:layout_below="@+id/monthly"
+        android:layout_alignParentStart="true"
+        android:layout_marginTop="60dp" />
 
-    <EditText
+    <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:textAppearance="?android:attr/textAppearanceMedium"
         android:text="0"
         android:id="@+id/current"
         android:layout_alignTop="@+id/current_label"
-        android:layout_alignStart="@+id/distance"
-        android:inputType="numberDecimal"/>
+        android:layout_alignEnd="@+id/days" />
 
     <TextView
         android:layout_width="wrap_content"
@@ -56,16 +77,56 @@
         android:textAppearance="?android:attr/textAppearanceMedium"
         android:text="@string/days"
         android:id="@+id/days_label"
-        android:layout_centerVertical="true"
-        android:layout_alignStart="@+id/current_label" />
+        android:labelFor="@+id/days"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentStart="true"
+        android:layout_marginBottom="94dp" />
 
-    <EditText
+    <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:inputType="numberSigned"
-        android:ems="10"
+        android:textAppearance="?android:attr/textAppearanceMedium"
+        android:text="0"
         android:id="@+id/days"
+        android:layout_alignTop="@+id/days_label"
+        android:layout_alignStart="@+id/monthly" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceMedium"
+        android:text="@string/neededDaily"
+        android:id="@+id/neededDaily_label"
+        android:labelFor="@+id/neededDaily"
+        android:layout_above="@+id/days_label"
+        android:layout_alignParentStart="true"
+        android:layout_marginBottom="50dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceMedium"
+        android:text="0"
+        android:id="@+id/neededDaily"
+        android:layout_alignTop="@+id/neededDaily_label"
+        android:layout_alignStart="@+id/days" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceMedium"
+        android:text="@string/needed"
+        android:id="@+id/needed_label"
         android:layout_centerVertical="true"
-        android:layout_alignStart="@+id/current" />
+        android:layout_alignParentStart="true" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceMedium"
+        android:text="0"
+        android:id="@+id/needed"
+        android:layout_alignTop="@+id/needed_label"
+        android:layout_alignStart="@+id/neededDaily" />
 
 </RelativeLayout>

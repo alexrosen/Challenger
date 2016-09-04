@@ -6,7 +6,6 @@ import android.content.pm.PackageManager;
 import android.support.design.widget.Snackbar;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.FragmentActivity;
-import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -19,33 +18,22 @@ import com.google.android.gms.common.api.GoogleApiClient;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.Scopes;
-import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.common.api.GoogleApiClient.ConnectionCallbacks;
 import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.common.api.Scope;
-import com.google.android.gms.common.api.Status;
 import com.google.android.gms.fitness.Fitness;
-import com.google.android.gms.fitness.FitnessActivities;
-import com.google.android.gms.fitness.FitnessStatusCodes;
 import com.google.android.gms.fitness.data.Bucket;
 import com.google.android.gms.fitness.data.DataPoint;
 import com.google.android.gms.fitness.data.DataSet;
 import com.google.android.gms.fitness.data.DataSource;
 import com.google.android.gms.fitness.data.DataType;
 import com.google.android.gms.fitness.data.Field;
-import com.google.android.gms.fitness.data.Session;
-import com.google.android.gms.fitness.request.DataDeleteRequest;
 import com.google.android.gms.fitness.request.DataReadRequest;
-import com.google.android.gms.fitness.request.DataSourcesRequest;
-import com.google.android.gms.fitness.request.SessionInsertRequest;
-import com.google.android.gms.fitness.request.SessionReadRequest;
 import com.google.android.gms.fitness.result.DataReadResult;
-import com.google.android.gms.fitness.result.SessionReadResult;
 
-import java.text.DateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
 public class MainActivity extends FragmentActivity {
@@ -59,8 +47,12 @@ public class MainActivity extends FragmentActivity {
     protected static final int REQUEST_CODE_RESOLUTION = 1;
     private static final int REQUEST_PERMISSIONS_REQUEST_CODE = 34;
 
-    private int distance;
+    private int monthly;
     private int current;
+    private TextView currentText;
+    private EditText monthlyText;
+    private TextView neededText;
+    private TextView neededDailyText;
     private TextView daysText;
 
     private GoogleApiClient mGoogleApiClient;
@@ -70,8 +62,10 @@ public class MainActivity extends FragmentActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        EditText distanceText = (EditText) findViewById(R.id.distance);
-        EditText currentText = (EditText) findViewById(R.id.current);
+        monthlyText = (EditText) findViewById(R.id.monthly);
+        currentText = (TextView) findViewById(R.id.current);
+        neededText = (TextView) findViewById(R.id.needed);
+        neededDailyText = (TextView) findViewById(R.id.neededDaily);
         daysText = (TextView) findViewById(R.id.days);
 
         // When permissions are revoked the app is restarted so onCreate is sufficient to check for
@@ -100,7 +94,9 @@ public class MainActivity extends FragmentActivity {
                 .addScope(new Scope(Scopes.FITNESS_ACTIVITY_READ))
                 .build();
 
-        distanceText.addTextChangedListener(new TextWatcher() {
+        updateCurrent();
+
+        monthlyText.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence charSequence, int i, int i1, int i2) {
 
@@ -114,53 +110,58 @@ public class MainActivity extends FragmentActivity {
             @Override
             public void afterTextChanged(Editable editable) {
                 String value = editable.toString();
-                Log.i(TAG, "here again");
                 if (value.length() > 0) {
-                    distance = Integer.parseInt(value);
+                    monthly = Integer.parseInt(value);
                 }
-                updateDays();
-                readData();
+                updateStatus();
+            }
+        });
+
+        currentText.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence charSequence, int i, int i1, int i2) {
+
+            }
+
+            @Override
+            public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
+
+            }
+
+            @Override
+            public void afterTextChanged(Editable editable) {
+                updateStatus();
             }
         });
     }
 
-    private void readData() {
-        // Setting a start and end date using a range of 1 week before this moment.
+    private void updateCurrent() {
         Calendar cal = Calendar.getInstance();
-        Date now = new Date();
-        cal.setTime(now);
-        long endTime = cal.getTimeInMillis();
-        cal.add(Calendar.WEEK_OF_YEAR, -1);
+
+        cal.set(Calendar.YEAR, cal.get(Calendar.YEAR));
+        cal.set(Calendar.DAY_OF_YEAR, 1);
+        cal.set(Calendar.HOUR, 0);
+        cal.set(Calendar.MINUTE, 0);
         long startTime = cal.getTimeInMillis();
+
+        cal.setTime(new Date());
+        long endTime = cal.getTimeInMillis();
 
         Log.i(TAG, "read data");
         Log.i(TAG, "Google API connection status: " + mGoogleApiClient.isConnected());
         Log.i(TAG, "Permission: " + checkPermissions());
 
-        final DataSource ds = new DataSource.Builder()
-                .setAppPackageName("com.google.android.gms")
-                .setDataType(DataType.TYPE_STEP_COUNT_DELTA)
+        final DataSource dataSource = new DataSource.Builder()
+                .setAppPackageName("com.endomondo.android")
+                .setDataType(DataType.TYPE_DISTANCE_DELTA)
                 .setType(DataSource.TYPE_DERIVED)
-                .setStreamName("estimated_steps")
                 .build();
-
-        //TODO: Adjust subscription to eliminate requirement that Google Fit app be installed to access existing data
-        subscribeToRecordingApi(ds);
 
         final DataReadRequest readRequest = new DataReadRequest.Builder()
-                .aggregate(ds, DataType.AGGREGATE_STEP_COUNT_DELTA)
-                .bucketByTime(1, TimeUnit.DAYS)
+                .aggregate(dataSource, DataType.AGGREGATE_DISTANCE_DELTA)
+                .bucketByTime(365, TimeUnit.DAYS)
                 .setTimeRange(startTime, endTime, TimeUnit.MILLISECONDS)
                 .build();
-
-/*
-        DataReadRequest readRequest = new DataReadRequest.Builder()
-                //.aggregate(DataType.TYPE_DISTANCE_DELTA, DataType.AGGREGATE_DISTANCE_DELTA)
-                .read(DataType.TYPE_DISTANCE_DELTA)
-                //.bucketByTime(1,  TimeUnit.DAYS)
-                .setTimeRange(startTime, endTime, TimeUnit.MILLISECONDS)
-                .build();
-*/
 
         Fitness.HistoryApi
                 .readData(mGoogleApiClient, readRequest)
@@ -169,37 +170,18 @@ public class MainActivity extends FragmentActivity {
                     public void onResult(DataReadResult result) {
                         Log.i(TAG, "Received result");
                         if (result.getStatus().isSuccess()) {
-                            printData(result);
+                            // There should be only one Bucket containing one DataSet and one DataPoint
                             for (Bucket bucket : result.getBuckets()) {
                                 List<DataSet> dataSets = bucket.getDataSets();
                                 for (DataSet dataSet : dataSets) {
                                     for (DataPoint dp : dataSet.getDataPoints()) {
-                                        for (Field field : dp.getDataType().getFields()) {
-                                            //daysText.setText(dp.getValue(field).toString());
-                                        }
+                                        current = (int) metersToMiles(dp.getValue(Field.FIELD_DISTANCE).asFloat());
+                                        currentText.setText(String.format(Locale.getDefault(), "%d", current));
+                                        updateStatus();
                                     }
                                 }
                             }
                         } else handleReadFailure(result);
-                    }
-                });
-}
-
-    private void subscribeToRecordingApi(DataSource ds) {
-        Fitness.RecordingApi.subscribe(mGoogleApiClient, ds)
-                .setResultCallback(new ResultCallback<Status>() {
-                    @Override
-                    public void onResult(Status status) {
-                        if (status.isSuccess()) {
-                            if (status.getStatusCode()
-                                    == FitnessStatusCodes.SUCCESS_ALREADY_SUBSCRIBED) {
-                                Log.i(TAG, "Existing subscription for activity detected.");
-                            } else {
-                                Log.i(TAG, "Successfully subscribed!");
-                            }
-                        } else {
-                            Log.i(TAG, "There was a problem subscribing.");
-                        }
                     }
                 });
     }
@@ -209,13 +191,38 @@ public class MainActivity extends FragmentActivity {
             try {
                 result.getStatus().startResolutionForResult(this, REQUEST_CODE_RESOLUTION);
             } catch (IntentSender.SendIntentException e) {
+                Log.e(TAG, "Unresolvable read failure: " + e.toString());
             }
         }
     }
 
-    private void updateDays () {
-        int days = (distance - current)/100;
-        daysText.setText(Integer.toString(days));
+    private void updateStatus() {
+        Calendar cal = Calendar.getInstance();
+        int month = cal.get(Calendar.MONTH);
+        int day = cal.get(Calendar.DAY_OF_MONTH);
+
+        int daysInMonth = cal.getActualMaximum(Calendar.DAY_OF_MONTH);
+
+        float daily  = ((float) monthly) / daysInMonth;
+
+        float monthEndTarget = (month+1) * monthly;
+
+        float neededThisMonth = monthEndTarget - current;
+        neededText.setText(String.format(Locale.getDefault(), "%d", (int) (neededThisMonth + 0.5)));
+
+        int daysRemaining = daysInMonth - day;
+        float neededDaily = (daysRemaining > 0) ? (neededThisMonth) / daysRemaining : neededThisMonth;
+        neededDailyText.setText(String.format(Locale.getDefault(), "%.2f", neededDaily));
+
+        float currentTarget = (month * monthly) + (day * daily);
+        int daysFromPace = (int) (((currentTarget - current) / daily) + 0.5);
+        daysFromPace = -1 * daysFromPace;
+
+        daysText.setText(String.format(Locale.getDefault(), "%d", daysFromPace));
+    }
+
+    private float metersToMiles(float meters) {
+        return ((float) (meters / 1609.344));
     }
 
     /**
@@ -260,61 +267,4 @@ public class MainActivity extends FragmentActivity {
                     REQUEST_PERMISSIONS_REQUEST_CODE);
         }
     }
-
-    /**
-     * Log a record of the query result. It's possible to get more constrained data sets by
-     * specifying a data source or data type, but for demonstrative purposes here's how one would
-     * dump all the data. In this sample, logging also prints to the device screen, so we can see
-     * what the query returns, but your app should not log fitness information as a privacy
-     * consideration. A better option would be to dump the data you receive to a local data
-     * directory to avoid exposing it to other applications.
-     */
-    public static void printData(DataReadResult dataReadResult) {
-        // [START parse_read_data_result]
-        // If the DataReadRequest object specified aggregated data, dataReadResult will be returned
-        // as buckets containing DataSets, instead of just DataSets.
-
-        Log.i(TAG, "Number of returned Buckets is: "
-                + dataReadResult.getBuckets().size());
-
-        if (dataReadResult.getBuckets().size() > 0) {
-            for (Bucket bucket : dataReadResult.getBuckets()) {
-                Log.i(TAG, "Number of DataSets in this bucket: "
-                        + bucket.getDataSets().size());
-                List<DataSet> dataSets = bucket.getDataSets();
-                for (DataSet dataSet : dataSets) {
-                    dumpDataSet(dataSet);
-                }
-            }
-        } else if (dataReadResult.getDataSets().size() > 0) {
-            Log.i(TAG, "Number of returned DataSets is: "
-                    + dataReadResult.getDataSets().size());
-            for (DataSet dataSet : dataReadResult.getDataSets()) {
-                dumpDataSet(dataSet);
-            }
-        }
-        // [END parse_read_data_result]
-    }
-
-    // [START parse_dataset]
-    private static void dumpDataSet(DataSet dataSet) {
-        Log.i(TAG, "DataSet Type: " + dataSet.getDataType().getName());
-        Log.i(TAG, "DataSet source name: " + dataSet.getDataSource().getName());
-        Log.i(TAG, "DataSet stream name: " + dataSet.getDataSource().getStreamName());
-        Log.i(TAG, "Number of DataPoints in DataSet: " + dataSet.getDataPoints().size());
-
-        DateFormat dateFormat = DateFormat.getTimeInstance();
-
-        for (DataPoint dp : dataSet.getDataPoints()) {
-            Log.i(TAG, "Data point:");
-            Log.i(TAG, "\tType: " + dp.getDataType().getName());
-            Log.i(TAG, "\tStart: " + dateFormat.format(dp.getStartTime(TimeUnit.MILLISECONDS)));
-            Log.i(TAG, "\tEnd: " + dateFormat.format(dp.getEndTime(TimeUnit.MILLISECONDS)));
-            for(Field field : dp.getDataType().getFields()) {
-                Log.i(TAG, "\tField: " + field.getName() +
-                        " Value: " + dp.getValue(field));
-            }
-        }
-    }
-    // [END parse_dataset]
 }
