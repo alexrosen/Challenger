@@ -7,5 +7,6 @@
     <string name="ok">OK</string>
     <string name="neededDaily">Needed Daily This Month</string>
     <string name="needed">Needed This Month</string>
+    <string name="monthly">monthly</string>
 
 </resources>

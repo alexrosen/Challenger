@@ -2,8 +2,10 @@ package com.freestyletech.challenger;
 
 import android.Manifest;
 import android.app.SearchManager;
+import android.content.Context;
 import android.content.Intent;
 import android.content.IntentSender;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.support.design.widget.Snackbar;
 import android.support.v4.app.ActivityCompat;
@@ -47,6 +49,8 @@ public class MainActivity extends FragmentActivity
 
     public static final String TAG = "Challenger";
 
+    private SharedPreferences sharedPref;
+
     private static final int REQUEST_OAUTH = 1001;
     /**
      * Request code for auto Google Play Services error resolution.
@@ -78,6 +82,10 @@ public class MainActivity extends FragmentActivity
         if (!checkPermissions()) {
             requestPermissions();
         }
+
+        sharedPref = this.getPreferences(Context.MODE_PRIVATE);
+        monthly = sharedPref.getInt(getString(R.string.monthly), 0);
+        monthlyText.setText(Integer.toString(monthly));
 
         // Create a Google Fit Client instance with default user account.
         mGoogleApiClient = new GoogleApiClient.Builder(this)
@@ -118,6 +126,9 @@ public class MainActivity extends FragmentActivity
                 String value = editable.toString();
                 if (value.length() > 0) {
                     monthly = Integer.parseInt(value);
+                    SharedPreferences.Editor editor = sharedPref.edit();
+                    editor.putInt(getString(R.string.monthly), monthly);
+                    editor.commit();
                 }
                 updateStatus();
             }
