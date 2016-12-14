@@ -1,6 +1,8 @@
 package com.freestyletech.challenger;
 
 import android.Manifest;
+import android.app.SearchManager;
+import android.content.Intent;
 import android.content.IntentSender;
 import android.content.pm.PackageManager;
 import android.support.design.widget.Snackbar;
@@ -14,6 +16,7 @@ import android.view.View;
 import android.widget.EditText;
 import android.widget.TextView;
 
+import com.google.android.gms.actions.SearchIntents;
 import com.google.android.gms.common.api.GoogleApiClient;
 
 import com.google.android.gms.common.ConnectionResult;
@@ -30,13 +33,17 @@ import com.google.android.gms.fitness.data.Field;
 import com.google.android.gms.fitness.request.DataReadRequest;
 import com.google.android.gms.fitness.result.DataReadResult;
 
+import java.sql.Connection;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
-public class MainActivity extends FragmentActivity {
+public class MainActivity extends FragmentActivity
+    implements GoogleApiClient.OnConnectionFailedListener {
+
+    private GoogleApiClient mGoogleApiClient;
 
     public static final String TAG = "Challenger";
 
@@ -54,8 +61,6 @@ public class MainActivity extends FragmentActivity {
     private TextView neededText;
     private TextView neededDailyText;
     private TextView daysText;
-
-    private GoogleApiClient mGoogleApiClient;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -76,25 +81,26 @@ public class MainActivity extends FragmentActivity {
 
         // Create a Google Fit Client instance with default user account.
         mGoogleApiClient = new GoogleApiClient.Builder(this)
-                .enableAutoManage(this, 0, new GoogleApiClient.OnConnectionFailedListener() {
-                    @Override
-                    public void onConnectionFailed(ConnectionResult result) {
-                        Log.i(TAG, "Google Play services connection failed. Cause: " +
-                                result.toString());
-                        Snackbar.make(
-                                MainActivity.this.findViewById(R.id.main_activity_view),
-                                "Exception while connecting to Google Play services: " +
-                                        result.getErrorMessage(),
-                                Snackbar.LENGTH_INDEFINITE).show();
-                    }
-                })
+                .enableAutoManage(this, this)
+//                .addConnectionCallbacks(this)
+//                .addOnConnectionFailedListener(this)
                 .useDefaultAccount()
                 .addApi(Fitness.HISTORY_API)
                 .addApi(Fitness.RECORDING_API)
                 .addScope(new Scope(Scopes.FITNESS_ACTIVITY_READ))
                 .build();
 
+        Log.i(TAG, "Connection built.");
+        Log.i(TAG, "Google API connection status: " + mGoogleApiClient.isConnected());
+
         updateCurrent();
+
+        // Did we get here from a search? If so, assume it was voice and speak the requested info
+        Intent intent = getIntent();
+        if (SearchIntents.ACTION_SEARCH.equals(intent.getAction())) {
+            String query = intent.getStringExtra(SearchManager.QUERY);
+            Log.i(TAG, "Received Search Query: " + query);
+        }
 
         monthlyText.addTextChangedListener(new TextWatcher() {
             @Override
@@ -135,6 +141,27 @@ public class MainActivity extends FragmentActivity {
         });
     }
 
+    @Override
+    public void onConnectionFailed(ConnectionResult result) {
+        Log.i(TAG, "Google Play services connection failed. Cause: " +
+                result.toString());
+        Snackbar.make(
+                MainActivity.this.findViewById(R.id.main_activity_view),
+                "Exception while connecting to Google Play services: " +
+                        result.getErrorMessage(),
+                Snackbar.LENGTH_INDEFINITE).show();
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+
+        if (SearchIntents.ACTION_SEARCH.equals(intent.getAction())) {
+            String query = intent.getStringExtra(SearchManager.QUERY);
+            Log.i(TAG, "Received Search Query: " + query);
+        }
+    }
+
     private void updateCurrent() {
         Calendar cal = Calendar.getInstance();
 
@@ -148,7 +175,6 @@ public class MainActivity extends FragmentActivity {
         long endTime = cal.getTimeInMillis();
 
         Log.i(TAG, "read data");
-        Log.i(TAG, "Google API connection status: " + mGoogleApiClient.isConnected());
         Log.i(TAG, "Permission: " + checkPermissions());
 
         final DataSource dataSource = new DataSource.Builder()
@@ -158,6 +184,7 @@ public class MainActivity extends FragmentActivity {
                 .build();
 
         final DataReadRequest readRequest = new DataReadRequest.Builder()
+                .enableServerQueries()
                 .aggregate(dataSource, DataType.AGGREGATE_DISTANCE_DELTA)
                 .bucketByTime(365, TimeUnit.DAYS)
                 .setTimeRange(startTime, endTime, TimeUnit.MILLISECONDS)
@@ -191,21 +218,25 @@ public class MainActivity extends FragmentActivity {
             try {
                 result.getStatus().startResolutionForResult(this, REQUEST_CODE_RESOLUTION);
             } catch (IntentSender.SendIntentException e) {
-                Log.e(TAG, "Unresolvable read failure: " + e.toString());
+                Log.e(TAG, "Failed to resolve read failure: " + e.toString());
             }
         }
+        else Log.e(TAG, "Unresolvable read failure: " + result.getStatus().toString());
     }
 
     private void updateStatus() {
+        // don't bother if monthly is not yet set
+        if (monthly <= 0) return;
+
         Calendar cal = Calendar.getInstance();
         int month = cal.get(Calendar.MONTH);
         int day = cal.get(Calendar.DAY_OF_MONTH);
 
         int daysInMonth = cal.getActualMaximum(Calendar.DAY_OF_MONTH);
 
-        float daily  = ((float) monthly) / daysInMonth;
+        float daily = ((float) monthly) / daysInMonth;
 
-        float monthEndTarget = (month+1) * monthly;
+        float monthEndTarget = (month + 1) * monthly;
 
         float neededThisMonth = monthEndTarget - current;
         neededText.setText(String.format(Locale.getDefault(), "%d", (int) (neededThisMonth + 0.5)));
